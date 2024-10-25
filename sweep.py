@@ -16,8 +16,8 @@ parser = argparse.ArgumentParser()
 
 
 parser.add_argument( '--epochs', type=int, default=500)
-parser.add_argument('--sweep_name', type=str, default='sweep_results.pkl')
-parser.add_argument('--hidden_channels', type=list, default=[2, 4, 8, 16])
+parser.add_argument('--sweep_name', type=str, default='sweep_results')
+parser.add_argument('--hidden_channels', type=list, default=[1, 2, 3, 4])
 parser.add_argument('--num_layers', type=list, default=[1, 2, 4, 8])
 parser.add_argument('--heads', type=list, default=[1, 2, 4, 8, 16])
 parser.add_argument('--dropout', type=list, default=[0.0, 0.2, 0.4, 0.6, 0.8])

@@ -5,6 +5,10 @@ import pickle
 import os
 import torch.nn.functional as F
 from carbontracker.tracker import CarbonTracker
+import numpy as np
+import copy
+import matplotlib.pyplot as plt
+
 
 def train_model(num_epochs, model, data, optimizer, criterion, return_loss = True, print_status = True, track_emissions = False):
     loss_list = []
@@ -35,18 +39,17 @@ def train_model(num_epochs, model, data, optimizer, criterion, return_loss = Tru
 
 def test_model(mask, model, data):
     model.eval()
-    out = model(data.x, data.edge_index)
-    pred = out.argmax(dim=1)  # Use the class with highest probability.
-    correct = pred[mask] == data.y[mask]  # Check against ground-truth labels.
-    acc = int(correct.sum()) / int(mask.sum())  # Derive ratio of correct predictions.
+    with torch.no_grad():
+        out = model(data.x, data.edge_index)
+        pred = out.argmax(dim=1).cpu().numpy()  # Use the class with highest probability and move to CPU.
+        correct = np.equal(pred[mask.cpu().numpy()], data.y[mask].cpu().numpy())  # Check against ground-truth labels.
+        acc = np.mean(correct)  # Derive ratio of correct predictions.
     return acc
 
 
 
 
 
-
-# Updated hyperparameter sweep function
 def hp_sweep(num_epochs, val_masks, dataset, hyperparameters_gat, criterion, filename, model_type='GAT'):
     results = []
     data = dataset[0]
@@ -151,3 +154,100 @@ def dataset_statistics(dataset):
 
 
 
+
+
+
+#Robustness:
+
+def add_noise_to_features(data, scale):
+    data_copy = copy.deepcopy(data)
+    noise = torch.randn_like(data_copy.x) * scale
+    data_copy.x += noise
+    return data_copy
+
+def add_noise_to_features_local(data, scale):
+    data_copy = copy.deepcopy(data)
+    n_nodes = data_copy.x.shape[0]
+    n_features = data_copy.x.shape[1]
+    for i in range(n_nodes):
+        data_copy.x[i] += torch.randn(n_features)*scale
+    return data_copy
+
+def feature_noise(data, data_noisy):
+    mse = np.mean((data.x.detach().cpu().numpy() - data_noisy.x.detach().cpu().numpy()) ** 2)
+    return mse
+
+
+
+def test_feature_noise_robustness(model, data, global_noise = True, scale_range = 0.2, scale_step = 0.01):
+    scale = [i/(1/scale_step) for i in range(0, int((scale_range/scale_step)+1))]
+    noisy_data_list = None
+    if global_noise:
+        noisy_data_list = [add_noise_to_features(data, s) for s in scale]
+    else:
+        noisy_data_list = [add_noise_to_features_local(data, s) for s in scale]
+    assert noisy_data_list is not None
+    acc = [test_model(data.test_mask, model, noisy_data) for noisy_data in noisy_data_list]
+    return scale, acc
+
+
+
+
+
+
+
+def do_n_tests(test_fun, model, data, n, global_noise=True):
+    tests = []
+    scale = None
+    for i in range(n):
+        scale, acc = test_fun(model, data, global_noise)
+        tests.append(acc)
+    assert scale is not None
+    return np.array(scale), np.array(tests)
+
+
+
+
+
+
+
+#plotting
+
+def plot_test(scale, tests, add_std_shading = False,  more_plots_coming=False, repeating = True, titel='', xlabel='Noise scale', ylabel='Accuracy', line_label='Mean Accuracy', std_label='std'):
+    mean_data = np.mean(tests, axis=0)
+    std_data = np.std(tests, axis=0)
+    if repeating:
+        plt.plot(scale, mean_data, label=line_label)
+    else:
+        plt.plot(scale, tests, label=line_label)
+
+    if add_std_shading:
+        plt.fill_between(scale, mean_data - std_data, mean_data + std_data, alpha=0.2, label=std_label)
+    if not(more_plots_coming):
+        plt.xlabel(xlabel)
+        plt.ylabel(ylabel)
+        plt.title(titel)
+        plt.legend()
+        plt.show()
+
+
+def plot_n_tests(tests, scale, repeating = True, titels = None):
+    if len(tests.shape) == 1:
+        plt.plot(scale, tests)
+    elif len(tests.shape) == 2:
+        if not repeating:
+            for i, test in enumerate(tests):
+                if titels is not None:
+                    plot_test(scale, test, more_plots_coming= i < len(tests) - 1, repeating=False, line_label=titels[i])
+                else:
+                    plot_test(scale, test, more_plots_coming= i < len(tests) - 1, repeating=False)
+        else:
+            plot_test(scale, tests, add_std_shading=True)
+    else:
+        for i, test in enumerate(tests):
+            if titels is not None:
+                plot_test(scale, test, add_std_shading=True, more_plots_coming= i < len(tests) - 1, line_label=titels[i])
+            else:
+                plot_test(scale, test, add_std_shading=True, more_plots_coming= i < len(tests) - 1)
+
+    
