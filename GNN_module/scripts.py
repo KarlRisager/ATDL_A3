@@ -4,12 +4,18 @@ from sklearn.model_selection import ParameterGrid
 import pickle
 import os
 import torch.nn.functional as F
+from carbontracker.tracker import CarbonTracker
 
-def train_model(num_epochs, model, data, optimizer, criterion, return_loss = True, print_status = True):
+def train_model(num_epochs, model, data, optimizer, criterion, return_loss = True, print_status = True, track_emissions = False):
     loss_list = []
+    tracker = None
+    if track_emissions:
+        tracker = CarbonTracker(epochs=num_epochs)
     if print_status:
         print("Training model...\n")
     for epoch in range(num_epochs):
+        if track_emissions:
+            tracker.epoch_start()
         optimizer.zero_grad()
         y_pred = model(data.x, data.edge_index)
         loss = criterion(y_pred[data.train_mask], data.y[data.train_mask])
@@ -19,8 +25,12 @@ def train_model(num_epochs, model, data, optimizer, criterion, return_loss = Tru
         optimizer.step()
         if print_status:
             print(f"Epoch {epoch}, Loss: {loss.item()}", end="\r", flush=True)
+        if track_emissions:
+            tracker.epoch_end()
     if return_loss:
         return loss_list
+    if track_emissions:
+        tracker.stop()
 
 
 def test_model(mask, model, data):
@@ -69,13 +79,14 @@ def hp_sweep(num_epochs, val_masks, dataset, hyperparameters_gat, criterion, fil
         # Train model and save training loss and test accuracy
         loss_list = train_model(num_epochs, model, data, optimizer, criterion, print_status=False)
         test_accuracy = test_model(val_masks, model, dataset)
-
+        number_of_parameters = count_trainable_parameters(model)
         
         # Append the result for this set of hyperparameters
         result = {
             'hyperparameters': params,
             'train_loss': loss_list,
-            'test_accuracy': test_accuracy
+            'test_accuracy': test_accuracy,
+            'number_of_parameters': number_of_parameters
         }
 
         results.append(result)
