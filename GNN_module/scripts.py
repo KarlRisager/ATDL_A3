@@ -179,7 +179,7 @@ def feature_noise(data, data_noisy):
 
 
 
-def test_feature_noise_robustness(model, data, global_noise = True, scale_range = 0.2, scale_step = 0.01):
+def test_feature_noise_robustness(model, data, global_noise = True, scale_range = 0.25, scale_step = 0.01):
     scale = [i/(1/scale_step) for i in range(0, int((scale_range/scale_step)+1))]
     noisy_data_list = None
     if global_noise:
@@ -202,6 +202,7 @@ def do_n_tests(test_fun, model, data, n, global_noise=True):
     for i in range(n):
         scale, acc = test_fun(model, data, global_noise)
         tests.append(acc)
+        print(f'Finished test {i+1}/{n}', end='\r', flush=True)
     assert scale is not None
     return np.array(scale), np.array(tests)
 
@@ -231,23 +232,23 @@ def plot_test(scale, tests, add_std_shading = False,  more_plots_coming=False, r
         plt.show()
 
 
-def plot_n_tests(tests, scale, repeating = True, titels = None):
+def plot_n_tests(tests, scale, repeating = True, titels = None, xlabel='Noise scale', ylabel='Accuracy', std_label='std', titel='', line_label='Mean Accuracy'):
     if len(tests.shape) == 1:
         plt.plot(scale, tests)
     elif len(tests.shape) == 2:
         if not repeating:
             for i, test in enumerate(tests):
                 if titels is not None:
-                    plot_test(scale, test, more_plots_coming= i < len(tests) - 1, repeating=False, line_label=titels[i])
+                    plot_test(scale, test, more_plots_coming= i < len(tests) - 1, repeating=False, line_label=titels[i], xlabel=xlabel, ylabel=ylabel, std_label=std_label, titel=titel)
                 else:
-                    plot_test(scale, test, more_plots_coming= i < len(tests) - 1, repeating=False)
+                    plot_test(scale, test, more_plots_coming= i < len(tests) - 1, repeating=False, xlabel=xlabel, ylabel=ylabel, line_label=line_label, std_label=std_label, titel=titel)
         else:
             plot_test(scale, tests, add_std_shading=True)
     else:
         for i, test in enumerate(tests):
             if titels is not None:
-                plot_test(scale, test, add_std_shading=True, more_plots_coming= i < len(tests) - 1, line_label=titels[i])
+                plot_test(scale, test, add_std_shading=True, more_plots_coming= i < len(tests) - 1, line_label=titels[i], xlabel=xlabel, ylabel=ylabel, std_label=std_label, titel=titel)
             else:
-                plot_test(scale, test, add_std_shading=True, more_plots_coming= i < len(tests) - 1)
+                plot_test(scale, test, add_std_shading=True, more_plots_coming= i < len(tests) - 1, xlabel=xlabel, ylabel=ylabel, line_label=line_label, std_label=std_label, titel=titel)
 
     
