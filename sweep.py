@@ -48,8 +48,8 @@ criterion = torch.nn.CrossEntropyLoss()
 
 hyperparameters_gat = {'hidden_channels': hidden_channels, 'num_layers': num_layers, 'heads': heads, 'dropout': dropout}
 
-file_name = sweep_name + 'gat_cora.pkl'
+file_name = sweep_name + '_gat_cora.pkl'
 sweep_results = hp_sweep(num_epochs, data.val_mask, dataset, hyperparameters_gat, criterion, file_name, model_type='GAT')
 
-file_name = sweep_name + 'gatv2_cora.pkl'
+file_name = sweep_name + '_gatv2_cora.pkl'
 sweep_resultsv2 = hp_sweep(num_epochs, data.val_mask, dataset, hyperparameters_gat, criterion, file_name, model_type='GATv2')
