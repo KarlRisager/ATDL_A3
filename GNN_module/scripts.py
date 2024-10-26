@@ -192,7 +192,7 @@ def feature_noise(data, data_noisy):
 
 
 
-def test_feature_noise_robustness(model, data, global_noise = True, scale_range = 0.25, scale_step = 0.01):
+def test_feature_noise_robustness(model, data, global_noise = True, scale_range = 0.15, scale_step = 0.01):
     scale = [i/(1/scale_step) for i in range(0, int((scale_range/scale_step)+1))]
     noisy_data_list = None
     if global_noise:
