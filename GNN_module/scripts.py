@@ -81,7 +81,7 @@ def hp_sweep(num_epochs, val_masks, dataset, hyperparameters_gat, criterion, fil
 
         # Train model and save training loss and test accuracy
         loss_list = train_model(num_epochs, model, data, optimizer, criterion, print_status=False)
-        test_accuracy = test_model(val_masks, model, dataset)
+        test_accuracy = test_model(val_masks, model, data)
         number_of_parameters = count_trainable_parameters(model)
         
         # Append the result for this set of hyperparameters
@@ -112,6 +112,16 @@ def hp_sweep(num_epochs, val_masks, dataset, hyperparameters_gat, criterion, fil
         pickle.dump(results, f)
     
     return results
+
+def get_best(sweep):
+    idx_best = 0
+    best_acc = 0
+    for i, test in enumerate(sweep):
+        acc = test['test_accuracy']
+        if acc > best_acc:
+            best_acc = acc
+            idx_best = i
+    return sweep[idx_best]
 
 
 
@@ -165,6 +175,8 @@ def add_noise_to_features(data, scale):
     data_copy.x += noise
     return data_copy
 
+
+
 def add_noise_to_features_local(data, scale):
     data_copy = copy.deepcopy(data)
     n_nodes = data_copy.x.shape[0]
@@ -176,6 +188,7 @@ def add_noise_to_features_local(data, scale):
 def feature_noise(data, data_noisy):
     mse = np.mean((data.x.detach().cpu().numpy() - data_noisy.x.detach().cpu().numpy()) ** 2)
     return mse
+
 
 
 
@@ -191,6 +204,45 @@ def test_feature_noise_robustness(model, data, global_noise = True, scale_range 
     return scale, acc
 
 
+def test_edge_noise_robustness(model, data, max_added_edges=250, check_existing=True):
+    num_added_edges = [i for i in range(max_added_edges+1)]
+    noisy_data_list = [add_random_edges(data, n, check_existing=check_existing) for n in num_added_edges]
+    acc = [test_model(data.test_mask, model, noisy_data) for noisy_data in noisy_data_list]
+    return num_added_edges, acc
+
+def test_edge_removal_robustness(model, data, max_removed_edges=250):
+    num_removed_edges = [i for i in range(max_removed_edges+1)]
+    noisy_data_list = [remove_edges(data, n) for n in num_removed_edges]
+    acc = [test_model(data.test_mask, model, noisy_data) for noisy_data in noisy_data_list]
+    return num_removed_edges, acc
+
+def remove_edges(data, n):
+    data_copy = copy.deepcopy(data)
+    num_edges = data_copy.num_edges
+    indices_to_be_removed = np.random.choice(num_edges, n, replace=False)
+    data_copy.edge_index = torch.tensor(np.array([np.delete(data_copy.edge_index[0].numpy(), indices_to_be_removed),
+                                         np.delete(data_copy.edge_index[1].numpy(), indices_to_be_removed)]))
+    return data_copy
+
+def add_random_edges(data, n, check_existing=True):
+    '''This adds n random edges to the edge_index of the data object. If check_existing is True, it ensures the edges do not already exist in the graph.'''
+    data_copy = copy.deepcopy(data)
+    existing_edges = set(map(tuple, data.edge_index.t().tolist()))
+    
+    random_edges = []
+    while len(random_edges) < n:
+        edge = tuple(torch.randint(low=0, high=data.num_nodes, size=(2,)).tolist())
+        if not check_existing or edge not in existing_edges:
+            random_edges.append(edge)
+            existing_edges.add(edge)
+    
+    random_edges = torch.tensor(random_edges, dtype=torch.long).t()  # Ensure the tensor is of type long
+    data_copy.edge_index = torch.cat((data.edge_index, random_edges), dim=1)
+    return data_copy
+
+
+
+
 
 
 
@@ -200,7 +252,7 @@ def do_n_tests(test_fun, model, data, n, global_noise=True):
     tests = []
     scale = None
     for i in range(n):
-        scale, acc = test_fun(model, data, global_noise)
+        scale, acc = test_fun(model, data)
         tests.append(acc)
         print(f'Finished test {i+1}/{n}', end='\r', flush=True)
     assert scale is not None
