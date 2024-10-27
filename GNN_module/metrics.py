@@ -1,4 +1,5 @@
 import numpy as np
+from .scripts import *
 
 #Area under the curve for performance as function of perturbation
 def AUC(perf_list):
@@ -13,14 +14,18 @@ def std_AUC(tests):
 
 #Coefficient of variation
 def CV(test_list):
+    '''Given a list of test results, calculate the coefficient of variation'''
     mean = np.mean(test_list)
     std = np.std(test_list)
-    return std / mean
+    res = std / mean
+    return res
 
 def mean_CV(tests):
+    '''Given a list of test results, calculate the mean coefficient of variation'''
     return np.mean([CV(test) for test in tests.T])
 
 def std_CV(tests):
+    '''Given a list of test results, calculate the standard deviation of the coefficient of variation'''
     return np.std([CV(test) for test in tests.T])
 
 def performance_variance(test_list):
@@ -38,10 +43,10 @@ def std_performance_variance(tests):
 
 
 def robustness_report(tests):
-    #Performance variance, CV, AUC. All the mean versions
-    perf_var = mean_performance_variance(tests)
+    tests = normalize_accuracy_n_tests(tests)
     cv = mean_CV(tests)
+    cv_std = std_CV(tests)
     auc = mean_AUC(tests)
-    print(f'Performance variance: {perf_var}')
-    print(f'CV: {cv}')
-    print(f'AUC: {auc}')
+    auc_std = std_AUC(tests)
+    print(f'CV: {cv.round(3)} ± {cv_std.round(3)}')
+    print(f'AUC: {auc.round(3)} ± {auc_std.round(3)}')

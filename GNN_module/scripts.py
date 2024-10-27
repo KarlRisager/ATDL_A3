@@ -245,6 +245,14 @@ def add_random_edges(data, n, check_existing=True):
 
 
 
+def normalize_accuracy(accuracy):
+    non_perturbed = accuracy[0]
+    return np.array([((acc/non_perturbed)) for  acc in accuracy])
+
+def normalize_accuracy_n_tests(accuracy_list):
+    
+    return np.array([normalize_accuracy(accuracy) for accuracy in accuracy_list])
+
 
 
 
@@ -266,7 +274,9 @@ def do_n_tests(test_fun, model, data, n, global_noise=True):
 
 #plotting
 
-def plot_test(scale, tests, add_std_shading = False,  more_plots_coming=False, repeating = True, titel='', xlabel='Noise scale', ylabel='Accuracy', line_label='Mean Accuracy', std_label='std'):
+def plot_test(scale, tests, add_std_shading = False,  more_plots_coming=False, repeating = True, normalize = True, titel='', xlabel='Noise scale', ylabel='Accuracy', line_label='Mean Accuracy', std_label='std'):
+    if normalize:
+        tests = normalize_accuracy_n_tests(tests)
     mean_data = np.mean(tests, axis=0)
     std_data = np.std(tests, axis=0)
     if repeating:
@@ -284,23 +294,23 @@ def plot_test(scale, tests, add_std_shading = False,  more_plots_coming=False, r
         plt.show()
 
 
-def plot_n_tests(tests, scale, repeating = True, titels = None, xlabel='Noise scale', ylabel='Accuracy', std_label='std', titel='', line_label='Mean Accuracy'):
+def plot_n_tests(tests, scale, repeating = True, titels = None, normalize = True, xlabel='Noise scale', ylabel='Accuracy', std_label='std', titel='', line_label='Mean Accuracy'):
     if len(tests.shape) == 1:
         plt.plot(scale, tests)
     elif len(tests.shape) == 2:
         if not repeating:
             for i, test in enumerate(tests):
                 if titels is not None:
-                    plot_test(scale, test, more_plots_coming= i < len(tests) - 1, repeating=False, line_label=titels[i], xlabel=xlabel, ylabel=ylabel, std_label=std_label, titel=titel)
+                    plot_test(scale, test, more_plots_coming= i < len(tests) - 1, repeating=False, normalize = normalize, line_label=titels[i], xlabel=xlabel, ylabel=ylabel, std_label=std_label, titel=titel)
                 else:
-                    plot_test(scale, test, more_plots_coming= i < len(tests) - 1, repeating=False, xlabel=xlabel, ylabel=ylabel, line_label=line_label, std_label=std_label, titel=titel)
+                    plot_test(scale, test, more_plots_coming= i < len(tests) - 1, repeating=False, normalize = normalize, xlabel=xlabel, ylabel=ylabel, line_label=line_label, std_label=std_label, titel=titel)
         else:
             plot_test(scale, tests, add_std_shading=True)
     else:
         for i, test in enumerate(tests):
             if titels is not None:
-                plot_test(scale, test, add_std_shading=True, more_plots_coming= i < len(tests) - 1, line_label=titels[i], xlabel=xlabel, ylabel=ylabel, std_label=std_label, titel=titel)
+                plot_test(scale, test, add_std_shading=True, more_plots_coming= i < len(tests) - 1, normalize = normalize, line_label=titels[i], xlabel=xlabel, ylabel=ylabel, std_label=std_label, titel=titel)
             else:
-                plot_test(scale, test, add_std_shading=True, more_plots_coming= i < len(tests) - 1, xlabel=xlabel, ylabel=ylabel, line_label=line_label, std_label=std_label, titel=titel)
+                plot_test(scale, test, add_std_shading=True, more_plots_coming= i < len(tests) - 1, normalize = normalize, xlabel=xlabel, ylabel=ylabel, line_label=line_label, std_label=std_label, titel=titel)
 
     
