@@ -123,9 +123,16 @@ def get_best(sweep):
             idx_best = i
     return sweep[idx_best]
 
+def load_sweep(path_to_sweep):
+    with open(path_to_sweep, 'rb') as f:
+        sweep = pickle.load(f)
+    return sweep
 
 
-
+def load_best_sweep(path_to_sweep):
+    sweep = load_sweep(path_to_sweep)
+    best = get_best(sweep)
+    return best
 
 
 
