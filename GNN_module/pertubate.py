@@ -1,4 +1,5 @@
 from .scripts import *
+from .scripts import test_model
 #from torch_geometric.nn.models import GAT, GCN
 import torch
 import numpy as np
