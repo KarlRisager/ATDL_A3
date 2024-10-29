@@ -1,5 +1,5 @@
 import numpy as np
-from .scripts import *
+from .scripts import normalize_accuracy_n_tests
 
 #Area under the curve for performance as function of perturbation
 def AUC(perf_list):

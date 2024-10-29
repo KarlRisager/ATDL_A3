@@ -8,22 +8,17 @@ from carbontracker.tracker import CarbonTracker
 import numpy as np
 #import copy
 #import matplotlib.pyplot as plt
-from .metrics import *
-from .pertubate import *
-from .stats import *
+#from .metrics import *
+#from .pertubate import *
+from .stats import count_trainable_parameters
 
 
 
-def train_model(num_epochs, model, data, optimizer, criterion, return_loss = True, print_status = True, track_emissions = False):
+def train_model(num_epochs, model, data, optimizer, criterion, return_loss = True, print_status = True):
     loss_list = []
-    tracker = None
-    if track_emissions:
-        tracker = CarbonTracker(epochs=num_epochs)
     if print_status:
-        print("Training model...\n")
+        print("Training model...")
     for epoch in range(num_epochs):
-        if track_emissions:
-            tracker.epoch_start()
         optimizer.zero_grad()
         y_pred = model(data.x, data.edge_index)
         loss = criterion(y_pred[data.train_mask], data.y[data.train_mask])
@@ -32,13 +27,11 @@ def train_model(num_epochs, model, data, optimizer, criterion, return_loss = Tru
         loss.backward()
         optimizer.step()
         if print_status:
-            print(f"Epoch {epoch}, Loss: {loss.item()}", end="\r", flush=True)
-        if track_emissions:
-            tracker.epoch_end()
+            print(f"Epoch {epoch+1}, Loss: {loss.item()}", end="\r", flush=True)
+    if print_status:
+        print("\nTraining finished\n")
     if return_loss:
         return loss_list
-    if track_emissions:
-        tracker.stop()
 
 
 def test_model(mask, model, data):
@@ -150,6 +143,8 @@ def initialize_model_from_sweep(path_to_sweep, model_type, dataset):
     elif model_type=='GATv2':
         model = GAT(v2 = True, in_channels=dataset.num_features, hidden_channels=s['hidden_channels']*s['heads'], num_layers=s['num_layers'], out_channels=dataset.num_classes, heads=s['heads'], dropout=s['dropout'], act=F.elu)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=5e-4)
+    
+    del s
 
     return model, optimizer
 
@@ -168,12 +163,14 @@ def normalize_accuracy_n_tests(accuracy_list):
 
 
 def do_n_tests(test_fun, model, data, n, global_noise=True):
+    print(f'Starting {n} tests...')
     tests = []
     scale = None
     for i in range(n):
         scale, acc = test_fun(model, data)
         tests.append(acc)
-        print(f'Finished test {i+1}/{n}', end='\r', flush=True)
+        print(f'{i+1}/{n} tests completed', end='\r', flush=True)
     assert scale is not None
+    print(f'\nFinished {n} tests\n')
     return np.array(scale), np.array(tests)
 

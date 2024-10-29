@@ -1,4 +1,4 @@
-from .scripts import *
+#from .scripts import *
 from .scripts import test_model
 #from torch_geometric.nn.models import GAT, GCN
 import torch
@@ -38,6 +38,7 @@ def test_feature_noise_robustness(model, data, global_noise = True, scale_range 
         noisy_data_list = [add_noise_to_features_local(data, s) for s in scale]
     assert noisy_data_list is not None
     acc = [test_model(data.test_mask, model, noisy_data) for noisy_data in noisy_data_list] # type: ignore
+    del noisy_data_list
     return scale, acc
 
 
@@ -45,12 +46,14 @@ def test_edge_noise_robustness(model, data, max_added_edges=250, check_existing=
     num_added_edges = [i for i in range(max_added_edges+1)]
     noisy_data_list = [add_random_edges(data, n, check_existing=check_existing) for n in num_added_edges]
     acc = [test_model(data.test_mask, model, noisy_data) for noisy_data in noisy_data_list] # type: ignore
+    del noisy_data_list
     return num_added_edges, acc
 
 def test_edge_removal_robustness(model, data, max_removed_edges=250):
     num_removed_edges = [i for i in range(max_removed_edges+1)]
     noisy_data_list = [remove_edges(data, n) for n in num_removed_edges]
     acc = [test_model(data.test_mask, model, noisy_data) for noisy_data in noisy_data_list]
+    del noisy_data_list
     return num_removed_edges, acc
 
 def remove_edges(data, n):
