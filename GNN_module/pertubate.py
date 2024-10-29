@@ -24,35 +24,53 @@ def feature_noise(data, data_noisy):
     mse = np.mean((data.x.detach().cpu().numpy() - data_noisy.x.detach().cpu().numpy()) ** 2)
     return mse
 
+def test_feature_noise_robustness(model, data, scale_range = 0.25, scale_step = 0.01):
+    acc_list = []
+    scale_list = []
+    for i in range(0, int((scale_range/scale_step)+1)):
+        scale = i/(1/scale_step)
+        scale_list.append(scale)
+
+        noisy_data = add_noise_to_features(data, scale)
+
+        acc = test_model(data.test_mask, model, noisy_data)
+        acc_list.append(acc)
+        del noisy_data
+
+    return np.array(scale_list), np.array(acc_list)
 
 
 
-def test_feature_noise_robustness(model, data, global_noise = True, scale_range = 0.25, scale_step = 0.01):
-    scale = [i/(1/scale_step) for i in range(0, int((scale_range/scale_step)+1))]
-    noisy_data_list = None
-    if global_noise:
-        noisy_data_list = [add_noise_to_features(data, s) for s in scale]
-    else:
-        noisy_data_list = [add_noise_to_features_local(data, s) for s in scale]
-    assert noisy_data_list is not None
-    acc = [test_model(data.test_mask, model, noisy_data) for noisy_data in noisy_data_list] # type: ignore
-    del noisy_data_list
-    return scale, acc
+
+def test_edge_adding_robustness(model, data, max_added_edges=150, step_size=1, check_existing=True):
+    scale_list = []
+    acc_list = []
+    for i in range(0, max_added_edges, step_size):
+        scale_list.append(i)
+
+        noisy_data = add_random_edges(data, i, check_existing=check_existing)
+
+        acc = test_model(data.test_mask, model, noisy_data)
+        acc_list.append(acc)
+        del noisy_data
+    return np.array(scale_list), np.array(acc_list)
+        
+        
 
 
-def test_edge_noise_robustness(model, data, max_added_edges=150, check_existing=True):
-    num_added_edges = [i for i in range(max_added_edges+1)]
-    noisy_data_list = [add_random_edges(data, n, check_existing=check_existing) for n in num_added_edges]
-    acc = [test_model(data.test_mask, model, noisy_data) for noisy_data in noisy_data_list] # type: ignore
-    del noisy_data_list
-    return num_added_edges, acc
 
-def test_edge_removal_robustness(model, data, max_removed_edges=150):
-    num_removed_edges = [i for i in range(max_removed_edges+1)]
-    noisy_data_list = [remove_edges(data, n) for n in num_removed_edges]
-    acc = [test_model(data.test_mask, model, noisy_data) for noisy_data in noisy_data_list]
-    del noisy_data_list
-    return num_removed_edges, acc
+def test_edge_removal_robustness(model, data, max_removed_edges=1000, step_size=5):
+    scale_list = []
+    acc_list = []
+    for i in range(0, max_removed_edges, step_size):
+        scale_list.append(i)
+
+        noisy_data = remove_edges(data, i)
+
+        acc = test_model(data.test_mask, model, noisy_data)
+        acc_list.append(acc)
+        del noisy_data
+    return np.array(scale_list), np.array(acc_list)
 
 def remove_edges(data, n):
     data_copy = copy.deepcopy(data)
