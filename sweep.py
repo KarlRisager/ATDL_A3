@@ -1,4 +1,5 @@
 from GNN_module.scripts import *
+from GNN_module.stats import *
 from torch_geometric.datasets import Planetoid
 from torch_geometric.transforms import NormalizeFeatures
 import torch
