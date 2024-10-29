@@ -4,12 +4,7 @@ from sklearn.model_selection import ParameterGrid
 import pickle
 import os
 import torch.nn.functional as F
-from carbontracker.tracker import CarbonTracker
 import numpy as np
-#import copy
-#import matplotlib.pyplot as plt
-#from .metrics import *
-#from .pertubate import *
 from .stats import count_trainable_parameters
 
 
@@ -162,7 +157,7 @@ def normalize_accuracy_n_tests(accuracy_list):
 
 
 
-def do_n_tests(test_fun, model, data, n, global_noise=True):
+def do_n_tests(test_fun, model, data, n):
     print(f'Starting {n} tests...')
     tests = []
     scale = None
