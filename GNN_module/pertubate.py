@@ -42,30 +42,13 @@ def add_random_edges(data, n, check_existing=True):
     del existing_edges, random_edges
     return data_copy
 
+
 def remove_random_features(data, n):
     data_copy = copy.deepcopy(data)
     num_features = data_copy.num_features
     indicies_to_zero = np.random.choice(num_features, n, replace=False)
     data_copy.x[:,indicies_to_zero] = 0
     del num_features, indicies_to_zero
-    return data_copy
-
-def remove_nodes2(data, n): #Remove this function
-    data_copy = copy.deepcopy(data)
-    num_nodes = data.num_nodes
-    indices_to_remove = np.random.choice(num_nodes, n, replace=False)
-    
-    # Removing nodes
-    data_copy.x = torch.tensor(np.delete(data_copy.x.numpy(), indices_to_remove, axis=0))
-    data_copy.y = torch.tensor(np.delete(data_copy.y.numpy(), indices_to_remove))
-    data_copy.train_mask = torch.tensor(np.delete(data_copy.train_mask.numpy(), indices_to_remove))
-    data_copy.val_mask = torch.tensor(np.delete(data_copy.val_mask.numpy(), indices_to_remove))
-    data_copy.test_mask = torch.tensor(np.delete(data_copy.test_mask.numpy(), indices_to_remove))
-    
-    # Removing all edges to removed nodes
-    mask = np.isin(data_copy.edge_index[0].numpy(), indices_to_remove) | np.isin(data_copy.edge_index[1].numpy(), indices_to_remove)
-    data_copy.edge_index = torch.tensor(data_copy.edge_index[:, ~mask])
-    
     return data_copy
 
 
