@@ -157,12 +157,12 @@ def normalize_accuracy_n_tests(accuracy_list):
 
 
 
-def do_n_tests(test_fun, model, data, n):
+def do_n_tests(test_fun, model, data, n, max_pert, step):
     print(f'Starting {n} tests...')
     tests = []
     scale = None
     for i in range(n):
-        scale, acc = test_fun(model, data)
+        scale, acc = test_fun(model, data, max_pert, step)
         tests.append(acc)
         print(f'{i+1}/{n} tests completed', end='\r', flush=True)
     assert scale is not None
