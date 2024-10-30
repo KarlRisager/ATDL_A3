@@ -1,25 +1,19 @@
-from torch_geometric.nn.models import GAT, GCN
+from torch_geometric.nn.models import GAT
 import torch
 from sklearn.model_selection import ParameterGrid
 import pickle
 import os
 import torch.nn.functional as F
-from carbontracker.tracker import CarbonTracker
 import numpy as np
-import copy
-import matplotlib.pyplot as plt
+from .stats import count_trainable_parameters
 
 
-def train_model(num_epochs, model, data, optimizer, criterion, return_loss = True, print_status = True, track_emissions = False):
+
+def train_model(num_epochs, model, data, optimizer, criterion, return_loss = True, print_status = True):
     loss_list = []
-    tracker = None
-    if track_emissions:
-        tracker = CarbonTracker(epochs=num_epochs)
     if print_status:
-        print("Training model...\n")
+        print("Training model...")
     for epoch in range(num_epochs):
-        if track_emissions:
-            tracker.epoch_start()
         optimizer.zero_grad()
         y_pred = model(data.x, data.edge_index)
         loss = criterion(y_pred[data.train_mask], data.y[data.train_mask])
@@ -28,13 +22,11 @@ def train_model(num_epochs, model, data, optimizer, criterion, return_loss = Tru
         loss.backward()
         optimizer.step()
         if print_status:
-            print(f"Epoch {epoch}, Loss: {loss.item()}", end="\r", flush=True)
-        if track_emissions:
-            tracker.epoch_end()
+            print(f"Epoch {epoch+1}, Loss: {loss.item()}", end="\r", flush=True)
+    if print_status:
+        print("\nTraining finished\n")
     if return_loss:
         return loss_list
-    if track_emissions:
-        tracker.stop()
 
 
 def test_model(mask, model, data):
@@ -113,6 +105,8 @@ def hp_sweep(num_epochs, val_masks, dataset, hyperparameters_gat, criterion, fil
     
     return results
 
+
+
 def get_best(sweep):
     idx_best = 0
     best_acc = 0
@@ -134,120 +128,20 @@ def load_best_sweep(path_to_sweep):
     best = get_best(sweep)
     return best
 
-
-
-
-
-
-
-
-
-#Statistics
-
-def count_trainable_parameters(model):
-    return sum(p.numel() for p in model.parameters() if p.requires_grad)
-
-def dataset_statistics(dataset):
-    print(f'Dataset: {dataset}:')
-    print('======================')
-    print(f'Number of graphs: {len(dataset)}')
-    print(f'Number of features: {dataset.num_features}')
-    print(f'Number of classes: {dataset.num_classes}')
-
-    data = dataset[0]  # Get the first graph object.
-
-    print(data)
-    print('===========================================================================================================')
-
-    # Gather some statistics about the graph.
-    print(f'Number of nodes: {data.num_nodes}')
-    print(f'Number of edges: {data.num_edges}')
-    print(f'Average node degree: {data.num_edges / data.num_nodes:.2f}')
-    print(f'Number of training nodes: {data.train_mask.sum()}')
-    print(f'Training node label rate: {int(data.train_mask.sum()) / data.num_nodes:.2f}')
-    print(f'Has isolated nodes: {data.has_isolated_nodes()}')
-    print(f'Has self-loops: {data.has_self_loops()}')
-    print(f'Is undirected: {data.is_undirected()}')
-
-
-
-
-
-
-#Robustness:
-
-def add_noise_to_features(data, scale):
-    data_copy = copy.deepcopy(data)
-    noise = torch.randn_like(data_copy.x) * scale
-    data_copy.x += noise
-    return data_copy
-
-
-
-def add_noise_to_features_local(data, scale):
-    data_copy = copy.deepcopy(data)
-    n_nodes = data_copy.x.shape[0]
-    n_features = data_copy.x.shape[1]
-    for i in range(n_nodes):
-        data_copy.x[i] += torch.randn(n_features)*scale
-    return data_copy
-
-def feature_noise(data, data_noisy):
-    mse = np.mean((data.x.detach().cpu().numpy() - data_noisy.x.detach().cpu().numpy()) ** 2)
-    return mse
-
-
-
-
-def test_feature_noise_robustness(model, data, global_noise = True, scale_range = 0.25, scale_step = 0.01):
-    scale = [i/(1/scale_step) for i in range(0, int((scale_range/scale_step)+1))]
-    noisy_data_list = None
-    if global_noise:
-        noisy_data_list = [add_noise_to_features(data, s) for s in scale]
-    else:
-        noisy_data_list = [add_noise_to_features_local(data, s) for s in scale]
-    assert noisy_data_list is not None
-    acc = [test_model(data.test_mask, model, noisy_data) for noisy_data in noisy_data_list]
-    return scale, acc
-
-
-def test_edge_noise_robustness(model, data, max_added_edges=250, check_existing=True):
-    num_added_edges = [i for i in range(max_added_edges+1)]
-    noisy_data_list = [add_random_edges(data, n, check_existing=check_existing) for n in num_added_edges]
-    acc = [test_model(data.test_mask, model, noisy_data) for noisy_data in noisy_data_list]
-    return num_added_edges, acc
-
-def test_edge_removal_robustness(model, data, max_removed_edges=250):
-    num_removed_edges = [i for i in range(max_removed_edges+1)]
-    noisy_data_list = [remove_edges(data, n) for n in num_removed_edges]
-    acc = [test_model(data.test_mask, model, noisy_data) for noisy_data in noisy_data_list]
-    return num_removed_edges, acc
-
-def remove_edges(data, n):
-    data_copy = copy.deepcopy(data)
-    num_edges = data_copy.num_edges
-    indices_to_be_removed = np.random.choice(num_edges, n, replace=False)
-    data_copy.edge_index = torch.tensor(np.array([np.delete(data_copy.edge_index[0].numpy(), indices_to_be_removed),
-                                         np.delete(data_copy.edge_index[1].numpy(), indices_to_be_removed)]))
-    return data_copy
-
-def add_random_edges(data, n, check_existing=True):
-    '''This adds n random edges to the edge_index of the data object. If check_existing is True, it ensures the edges do not already exist in the graph.'''
-    data_copy = copy.deepcopy(data)
-    existing_edges = set(map(tuple, data.edge_index.t().tolist()))
+def initialize_model_from_sweep(path_to_sweep, model_type, dataset):
+    model = None
+    optimizer = None
+    s = load_best_sweep(path_to_sweep)['hyperparameters']
+    if model_type=='GAT':
+        model = GAT(in_channels=dataset.num_features, hidden_channels=s['hidden_channels']*s['heads'], num_layers=s['num_layers'], out_channels=dataset.num_classes, heads=s['heads'], dropout=s['dropout'], act=F.elu)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=5e-4)
+    elif model_type=='GATv2':
+        model = GAT(v2 = True, in_channels=dataset.num_features, hidden_channels=s['hidden_channels']*s['heads'], num_layers=s['num_layers'], out_channels=dataset.num_classes, heads=s['heads'], dropout=s['dropout'], act=F.elu)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=5e-4)
     
-    random_edges = []
-    while len(random_edges) < n:
-        edge = tuple(torch.randint(low=0, high=data.num_nodes, size=(2,)).tolist())
-        if not check_existing or edge not in existing_edges:
-            random_edges.append(edge)
-            existing_edges.add(edge)
-    
-    random_edges = torch.tensor(random_edges, dtype=torch.long).t()  # Ensure the tensor is of type long
-    data_copy.edge_index = torch.cat((data.edge_index, random_edges), dim=1)
-    return data_copy
+    del s
 
-
+    return model, optimizer
 
 
 
@@ -263,61 +157,15 @@ def normalize_accuracy_n_tests(accuracy_list):
 
 
 
-def do_n_tests(test_fun, model, data, n, global_noise=True):
+def do_n_tests(test_fun, model, data, n):
+    print(f'Starting {n} tests...')
     tests = []
     scale = None
     for i in range(n):
         scale, acc = test_fun(model, data)
         tests.append(acc)
-        print(f'Finished test {i+1}/{n}', end='\r', flush=True)
+        print(f'{i+1}/{n} tests completed', end='\r', flush=True)
     assert scale is not None
+    print(f'\nFinished {n} tests\n')
     return np.array(scale), np.array(tests)
 
-
-
-
-
-
-
-#plotting
-
-def plot_test(scale, tests, add_std_shading = False,  more_plots_coming=False, repeating = True, normalize = True, titel='', xlabel='Noise scale', ylabel='Accuracy', line_label='Mean Accuracy', std_label='std'):
-    if normalize:
-        tests = normalize_accuracy_n_tests(tests)
-    mean_data = np.mean(tests, axis=0)
-    std_data = np.std(tests, axis=0)
-    if repeating:
-        plt.plot(scale, mean_data, label=line_label)
-    else:
-        plt.plot(scale, tests, label=line_label)
-
-    if add_std_shading:
-        plt.fill_between(scale, mean_data - std_data, mean_data + std_data, alpha=0.2, label=std_label)
-    if not(more_plots_coming):
-        plt.xlabel(xlabel)
-        plt.ylabel(ylabel)
-        plt.title(titel)
-        plt.legend()
-        plt.show()
-
-
-def plot_n_tests(tests, scale, repeating = True, titels = None, normalize = True, xlabel='Noise scale', ylabel='Accuracy', std_label='std', titel='', line_label='Mean Accuracy'):
-    if len(tests.shape) == 1:
-        plt.plot(scale, tests)
-    elif len(tests.shape) == 2:
-        if not repeating:
-            for i, test in enumerate(tests):
-                if titels is not None:
-                    plot_test(scale, test, more_plots_coming= i < len(tests) - 1, repeating=False, normalize = normalize, line_label=titels[i], xlabel=xlabel, ylabel=ylabel, std_label=std_label, titel=titel)
-                else:
-                    plot_test(scale, test, more_plots_coming= i < len(tests) - 1, repeating=False, normalize = normalize, xlabel=xlabel, ylabel=ylabel, line_label=line_label, std_label=std_label, titel=titel)
-        else:
-            plot_test(scale, tests, add_std_shading=True)
-    else:
-        for i, test in enumerate(tests):
-            if titels is not None:
-                plot_test(scale, test, add_std_shading=True, more_plots_coming= i < len(tests) - 1, normalize = normalize, line_label=titels[i], xlabel=xlabel, ylabel=ylabel, std_label=std_label, titel=titel)
-            else:
-                plot_test(scale, test, add_std_shading=True, more_plots_coming= i < len(tests) - 1, normalize = normalize, xlabel=xlabel, ylabel=ylabel, line_label=line_label, std_label=std_label, titel=titel)
-
-    
