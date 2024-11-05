@@ -1,5 +1,5 @@
 import numpy as np
-from .scripts import *
+from .scripts import normalize_accuracy_n_tests
 
 #Area under the curve for performance as function of perturbation
 def AUC(perf_list):
@@ -43,7 +43,7 @@ def std_performance_variance(tests):
 
 
 def robustness_report(tests):
-    tests = normalize_accuracy_n_tests(tests)
+    tests = normalize_accuracy_n_tests(tests) # type: ignore
     cv = mean_CV(tests)
     cv_std = std_CV(tests)
     auc = mean_AUC(tests)
