@@ -1,0 +1,3 @@
+# HOW ATTENTIVE ARE GRAPH ATTENTION NETWORKS TO ADVERSARIAL ATTACKS?
+
+Graph Attention Networks (GATs), including GATv2 represent state-of-the-art approaches in graph-structured data learning. As these models have significant applications across various domains, assessing their sensitivity to adversarial attacks becomes crucial. However, existing research lacks a detailed comparison of GAT and GATv2 in this context. To fill this gap, we propose a comprehensive study using various adversarial attack methods, including evasion and model poisoning techniques. Our approach will employ established methods like Nettack, and Mettack, along with random perturbations incorporating feature, node, and edge perturbation methods.
