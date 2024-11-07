@@ -1,8 +1,6 @@
-
-
-
 def count_trainable_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 
 def dataset_statistics(dataset):
     print(f'Dataset: {dataset}:')
@@ -25,5 +23,3 @@ def dataset_statistics(dataset):
     print(f'Has isolated nodes: {data.has_isolated_nodes()}')
     print(f'Has self-loops: {data.has_self_loops()}')
     print(f'Is undirected: {data.is_undirected()}')
-
-

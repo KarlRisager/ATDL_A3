@@ -1,15 +1,16 @@
-from torch_geometric.nn.models import GAT
-import torch
-from sklearn.model_selection import ParameterGrid
-import pickle
 import os
-import torch.nn.functional as F
+import pickle
+
 import numpy as np
+import torch
+import torch.nn.functional as F
+from sklearn.model_selection import ParameterGrid
+from torch_geometric.nn.models import GAT
+
 from .stats import count_trainable_parameters
 
 
-
-def train_model(num_epochs, model, data, optimizer, criterion, return_loss = True, print_status = True):
+def train_model(num_epochs, model, data, optimizer, criterion, return_loss=True, print_status=True):
     loss_list = []
     if print_status:
         print("Training model...")
@@ -22,7 +23,7 @@ def train_model(num_epochs, model, data, optimizer, criterion, return_loss = Tru
         loss.backward()
         optimizer.step()
         if print_status:
-            print(f"Epoch {epoch+1}, Loss: {loss.item()}", end="\r", flush=True)
+            print(f"Epoch {epoch + 1}, Loss: {loss.item()}", end="\r", flush=True)
     if print_status:
         print("\nTraining finished\n")
     if return_loss:
@@ -39,9 +40,6 @@ def test_model(mask, model, data):
     return acc
 
 
-
-
-
 def hp_sweep(num_epochs, val_masks, dataset, hyperparameters_gat, criterion, filename, model_type='GAT'):
     results = []
     data = dataset[0]
@@ -56,16 +54,17 @@ def hp_sweep(num_epochs, val_masks, dataset, hyperparameters_gat, criterion, fil
         heads = params['heads']
         dropout = params['dropout']
 
-        #print(f'Running with hidden_channels: {hidden_channels}, num_layers: {num_layers}, heads: {heads}, dropout: {dropout}')
-        
+        # print(f'Running with hidden_channels: {hidden_channels}, num_layers: {num_layers}, heads: {heads}, dropout: {dropout}')
 
         model = None
         if model_type == 'GAT':
-            model = GAT(in_channels=dataset.num_features, hidden_channels=hidden_channels * heads, 
-                  num_layers=num_layers, out_channels=dataset.num_classes, heads=heads, dropout=dropout, act=F.elu)
+            model = GAT(in_channels=dataset.num_features, hidden_channels=hidden_channels * heads,
+                        num_layers=num_layers, out_channels=dataset.num_classes, heads=heads, dropout=dropout,
+                        act=F.elu)
         elif model_type == 'GATv2':
-            model = GAT(v2=True, in_channels=dataset.num_features, hidden_channels=hidden_channels * heads, 
-                    num_layers=num_layers, out_channels=dataset.num_classes, heads=heads, dropout=dropout, act=F.elu)
+            model = GAT(v2=True, in_channels=dataset.num_features, hidden_channels=hidden_channels * heads,
+                        num_layers=num_layers, out_channels=dataset.num_classes, heads=heads, dropout=dropout,
+                        act=F.elu)
 
         assert model is not None
 
@@ -75,7 +74,7 @@ def hp_sweep(num_epochs, val_masks, dataset, hyperparameters_gat, criterion, fil
         loss_list = train_model(num_epochs, model, data, optimizer, criterion, print_status=False)
         test_accuracy = test_model(val_masks, model, data)
         number_of_parameters = count_trainable_parameters(model)
-        
+
         # Append the result for this set of hyperparameters
         result = {
             'hyperparameters': params,
@@ -86,11 +85,11 @@ def hp_sweep(num_epochs, val_masks, dataset, hyperparameters_gat, criterion, fil
 
         results.append(result)
 
-        print(f'Finished hyperparameter combination {idx+1}/{n}', end='\r', flush=True)
+        print(f'Finished hyperparameter combination {idx + 1}/{n}', end='\r', flush=True)
 
     # Ensure the 'sweeps' directory exists
     os.makedirs('sweeps', exist_ok=True)
-    
+
     # Check if the file already exists and modify the filename if necessary
     base_filename, extension = os.path.splitext(filename)
     counter = 1
@@ -102,9 +101,8 @@ def hp_sweep(num_epochs, val_masks, dataset, hyperparameters_gat, criterion, fil
     # Save the results using pickle
     with open(os.path.join('sweeps', new_filename), 'wb') as f:
         pickle.dump(results, f)
-    
-    return results
 
+    return results
 
 
 def get_best(sweep):
@@ -117,6 +115,7 @@ def get_best(sweep):
             idx_best = i
     return sweep[idx_best]
 
+
 def load_sweep(path_to_sweep):
     with open(path_to_sweep, 'rb') as f:
         sweep = pickle.load(f)
@@ -128,33 +127,34 @@ def load_best_sweep(path_to_sweep):
     best = get_best(sweep)
     return best
 
+
 def initialize_model_from_sweep(path_to_sweep, model_type, dataset):
     model = None
     optimizer = None
     s = load_best_sweep(path_to_sweep)['hyperparameters']
-    if model_type=='GAT':
-        model = GAT(in_channels=dataset.num_features, hidden_channels=s['hidden_channels']*s['heads'], num_layers=s['num_layers'], out_channels=dataset.num_classes, heads=s['heads'], dropout=s['dropout'], act=F.elu)
+    if model_type == 'GAT':
+        model = GAT(in_channels=dataset.num_features, hidden_channels=s['hidden_channels'] * s['heads'],
+                    num_layers=s['num_layers'], out_channels=dataset.num_classes, heads=s['heads'],
+                    dropout=s['dropout'], act=F.elu)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=5e-4)
-    elif model_type=='GATv2':
-        model = GAT(v2 = True, in_channels=dataset.num_features, hidden_channels=s['hidden_channels']*s['heads'], num_layers=s['num_layers'], out_channels=dataset.num_classes, heads=s['heads'], dropout=s['dropout'], act=F.elu)
+    elif model_type == 'GATv2':
+        model = GAT(v2=True, in_channels=dataset.num_features, hidden_channels=s['hidden_channels'] * s['heads'],
+                    num_layers=s['num_layers'], out_channels=dataset.num_classes, heads=s['heads'],
+                    dropout=s['dropout'], act=F.elu)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=5e-4)
-    
+
     del s
 
     return model, optimizer
 
 
-
-
 def normalize_accuracy(accuracy):
     non_perturbed = accuracy[0]
-    return np.array([((acc/non_perturbed)) for  acc in accuracy])
+    return np.array([((acc / non_perturbed)) for acc in accuracy])
+
 
 def normalize_accuracy_n_tests(accuracy_list):
-    
     return np.array([normalize_accuracy(accuracy) for accuracy in accuracy_list])
-
-
 
 
 def do_n_tests(test_fun, model, data, n, max_pert, step):
@@ -164,8 +164,7 @@ def do_n_tests(test_fun, model, data, n, max_pert, step):
     for i in range(n):
         scale, acc = test_fun(model, data, max_pert, step)
         tests.append(acc)
-        print(f'{i+1}/{n} tests completed', end='\r', flush=True)
+        print(f'{i + 1}/{n} tests completed', end='\r', flush=True)
     assert scale is not None
     print(f'\nFinished {n} tests\n')
     return np.array(scale), np.array(tests)
-
